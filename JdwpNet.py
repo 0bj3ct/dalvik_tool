@@ -134,7 +134,8 @@ class Connection(Thread):
         self.bindqueue.put(('r', cmd, chan))
 
 
-    def request(self, ident, cmds, data, timeout=None):
+    def request(self, buf, timeout=None):
+        lens,ident,flags,cmds = buf.unpack('!IIBH')
         queue = Queue()
         self.bindqueue.put(('q', ident, queue))
         self.write(data)
