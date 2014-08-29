@@ -123,22 +123,23 @@ class Connection(Thread):
     def handrun(self):
         while True:
             self.dispatchRequest(*self.evtq.get())
+            print "recved from VM"
 
-    def dispatchRequest(self,cmd,ident,buf):
-        func = self.callback_func[cmd]
-        return func(ident,buf)
+    def dispatchRequest(self,cmds,buf):
+        func = self.callback_func[cmds]
+        return func(cmds,buf)
 
     #设置从虚拟机发过来的请求的回调函数    
-    def setcallback(self,cmd,func):
-        self.callback_func[cmd] = func
-        self.bindqueue.put(('r', cmd, chan))
+    def setcallback(self,cmds,func):
+        self.callback_func[cmds] = func
+        self.bindqueue.put(('r', cmds, self.evtq))
 
 
     def request(self, buf, timeout=None):
         lens,ident,flags,cmds = buf.unpack('!IIBH')
         queue = Queue()
         self.bindqueue.put(('q', ident, queue))
-        self.write(data)
+        self.write(buf.buf)
         try:
             return queue.get(1, timeout)
         except EmptyQueue:
@@ -172,10 +173,12 @@ class Connection(Thread):
 
     #处理请求
     ##请求数据包的flag是0x00
-    def processRequest(self, ident, code, data):
-        chan = self.rmap.get(code)  #所有中断都由该chan队列处理，每次只是从rmap读出内容，而没有将rmap对应的chan清除
-        if not chan: return #TODO
-        return chan.put((ident, data)) #将解析后的数据压入队列中
+    def processRequest(self, ident, cmds, data):
+        chan = self.rmap.get(cmds)  #所有中断都由该chan队列处理，每次只是从rmap读出内容，而没有将rmap对应的chan清除
+        if not chan:
+            print "get erro"
+            return #TODO
+        return chan.put((cmds, data)) #将解析后的数据压入队列中
      
     def processResponse(self, ident, code, data):
         chan = self.qmap.pop(ident, None) #从字典中读取，并删除该数据
@@ -201,7 +204,7 @@ class Connection(Thread):
             return
 
 if __name__ == '__main__':
-    pid = 19093
+    pid = 12368
     dev = None
     conn = connect(forward(pid, dev))
     while True:

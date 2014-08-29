@@ -16,17 +16,21 @@ def printHex(data,size):
             print "i=%d,j=%d,%x" %(i,j,ord(data[i+j]))
         #print "\n"
 class TraceReader(object):
-    def __init__(self,fileName):
-        self.fileName = fileName
+    def __init__(self,types,fileName):
         self.funcData = {}
         self.callInfo = []
-        self.file_object = open(fileName,'rb')
-        self._ParseFile()
-        self.file_object.close()
-
+        if types == 'f':
+            self.fileName = fileName
+            self.file_object = open(fileName,'rb')
+            self._ParseFile()
+            self.file_object.close()
+            self.allData = self.file_object.read()
+        else:
+            self.allData = fileName
+            self._ParseFile()
     def _ParseFile(self):
         start = False
-        allData = self.file_object.read()
+        allData = self.allData
         pos = allData.find('SLOW')
         strData = allData[0:pos]
         for line in strData.split('\n'):
@@ -64,6 +68,6 @@ class TraceReader(object):
 
 
 if __name__ == '__main__':
-    trace = TraceReader(r'C:\698042338.trace')
+    trace = TraceReader('f',r'C:\698042338.trace')
     for meth in trace.callInfo:
         print meth
