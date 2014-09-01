@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file '.\ui\xmono.ui'
 #
-# Created: Sun Aug 31 14:18:30 2014
+# Created: Mon Sep 01 09:57:46 2014
 #      by: PyQt4 UI code generator 4.11.1
 #
 # WARNING! All changes made in this file will be lost!
@@ -26,7 +26,7 @@ except AttributeError:
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName(_fromUtf8("MainWindow"))
-        MainWindow.resize(800, 600)
+        MainWindow.resize(799, 600)
         font = QtGui.QFont()
         font.setFamily(_fromUtf8("Consolas"))
         MainWindow.setFont(font)
@@ -105,7 +105,7 @@ class Ui_MainWindow(object):
         self.gridLayout_2.addWidget(self.splitter, 1, 0, 1, 1)
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtGui.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 800, 23))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 799, 23))
         self.menubar.setObjectName(_fromUtf8("menubar"))
         MainWindow.setMenuBar(self.menubar)
         self.statusbar = QtGui.QStatusBar(MainWindow)
@@ -118,7 +118,7 @@ class Ui_MainWindow(object):
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):
-        MainWindow.setWindowTitle(_translate("MainWindow", "MonoHack", None))
+        MainWindow.setWindowTitle(_translate("MainWindow", "DalvikTool", None))
         self.label.setText(_translate("MainWindow", "过滤器", None))
         self.funcGroupBox.setTitle(_translate("MainWindow", "函数 : 0", None))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.count), _translate("MainWindow", "计数", None))

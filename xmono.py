@@ -5,7 +5,8 @@
 
 from PyQt4 import QtCore, QtGui
 import xmonoUI
-#import cil, stack_trace
+import cil, stack_trace
+import stack_trace
 import TraceReader
 import JdwpHandle
 import zlib
@@ -58,7 +59,7 @@ class XMonoWindow(QtGui.QMainWindow):
         self.ui = xmonoUI.Ui_MainWindow()
         self.ui.setupUi(self)
         #self.cilWindow = cil.CilWindow(self)
-        #self.stackTraceWindow = stack_trace.StackTraceWindow(self)
+        self.stackTraceWindow = stack_trace.StackTraceWindow(self)
         self.log = Log()
         self.log.regHandle(self._print2Log)
         #self._ecmd = ecmd.Ecmd(self)
@@ -125,7 +126,7 @@ class XMonoWindow(QtGui.QMainWindow):
         self.startTraceAct.setEnabled(False)
         self.stopTraceAct.setEnabled(False)
         #self.cilWindow.WinInit()
-        #self.stackTraceWindow.WinInit()
+        self.stackTraceWindow.WinInit()
 
     def _slotConnects(self):
         _actTriggered = lambda act,slot:self.connect(act, QtCore.SIGNAL("triggered()"), slot)
@@ -133,14 +134,17 @@ class XMonoWindow(QtGui.QMainWindow):
         _actTriggered(self.startTraceAct, self._startTrace)
         _actTriggered(self.stopTraceAct, self._stopTrace)
         #_actTriggered(self.stackTraceAct, self._stackTraceMethod)
-        #_actTriggered(self.showStackWinAct, self.stackTraceWindow.show)
+        _actTriggered(self.showStackWinAct, self.stackTraceWindow.show)
+
+
+
+        self.ui.funcCntTableWidget.customContextMenuRequested.connect(self._showFuncCntRMenu)
 
         '''self.ui.filterLineEdit.returnPressed.connect(self._filterOutRequest)
         self.ui.tabWidget.currentChanged.connect(self._traceCntShow)
         self.ui.funcCntTableWidget.itemDoubleClicked.connect(self._funcDoubleClicked)
         self.cilDisasmed.connect(self.cilWindow.showCil)
         self.ui.cmdLineEdit.returnPressed.connect(self._cmdHandle)
-        self.ui.funcCntTableWidget.customContextMenuRequested.connect(self._showFuncCntRMenu)
         self.stackTraceWindow.deleteMethod.connect(self._traceMethod)
         self.stackTraceWindow.selectMethod.connect(self._disasmMethod)
         self.cilWindow.compiled.connect(self._replaceMethod)'''
@@ -152,7 +156,7 @@ class XMonoWindow(QtGui.QMainWindow):
     def _jdwpInit(self):
         erro = False
         try:
-            self.sess = Session(7526,None)
+            self.sess = Session(11211,None)
         except HandshakeError:
             erro = True
             self._ecmdErr(u"进程出错")
@@ -251,16 +255,23 @@ class XMonoWindow(QtGui.QMainWindow):
             w.setItem(row, 2, v)
         w.sortItems(0, QtCore.Qt.AscendingOrder)
 
-    def _traceCntHandle(self, l):
-        for i in l:
-            item = i.split('|')
-            self._traceFuncCntDict[item[0]] = (int(item[1]), int(item[2]))
+    def _traceCntHandle(self, reader):
+        for m in reader.callInfo:
+            if m["method_action"]:
+                method_info = reader.funcData[m["method_id"]]
+                funcName = method_info["method_name"]
+                if method_info["method_name"] in self._traceFuncCntDict.keys():
+                    data = self._traceFuncCntDict[funcName]
+                    callCnt = data[0]
+                    self._traceFuncCntDict[funcName] = (callCnt,data[1])
+                else:
+                    self._traceFuncCntDict[funcName] = (1, 2)
+                #self._traceFuncCntDict[method_info["method_name"]] = (int(item[1]), int(item[2]))
         self._funcTraceCntFilteShow()
 
     def _recvFuncTrace(self, reader):
         self.log.d(u"recv func trace data : {0}".format(123))
-        #l = data.split("\n")[:-1]
-        #self._traceCntHandle(l)
+        self._traceCntHandle(reader)
         #self.ui.funcGroupBox.setTitle (u"函数 : {0}".format(len(self._traceFuncCntDict)))
 
     def _funcDoubleClicked(self, item):

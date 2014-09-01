@@ -450,10 +450,16 @@ class DalvkVm(object):
         self.sess = sess
         self.traceCb = None
         self.classList = []
+        self.classes()
     def classes(self):
         if len(self.classList):
             return self.classDict
         return self.getallclass()
+    def getClass(self,clsName):
+        if clsName in self.classDict.keys():
+            return self.classDict[clsName]
+        else:
+            return None
     def getallclass(self):
         self.sess.sendbuf.clear()
         self.sess.packJdwpHeader(0,1,20)
