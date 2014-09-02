@@ -53,12 +53,13 @@ class XMonoWindow(QtGui.QMainWindow):
 
     #声明信号槽
     cilDisasmed = QtCore.pyqtSignal(str)
+    onTraceRecv = QtCore.pyqtSignal(object)
 
     def __init__(self, parent=None):
         QtGui.QMainWindow.__init__(self, parent)
         self.ui = xmonoUI.Ui_MainWindow()
         self.ui.setupUi(self)
-        #self.cilWindow = cil.CilWindow(self)
+        self.cilWindow = cil.CilWindow(self)
         self.stackTraceWindow = stack_trace.StackTraceWindow(self)
         self.log = Log()
         self.log.regHandle(self._print2Log)
@@ -125,7 +126,7 @@ class XMonoWindow(QtGui.QMainWindow):
         self.connectAct.setEnabled(True)
         self.startTraceAct.setEnabled(False)
         self.stopTraceAct.setEnabled(False)
-        #self.cilWindow.WinInit()
+        self.cilWindow.WinInit()
         self.stackTraceWindow.WinInit()
 
     def _slotConnects(self):
@@ -137,13 +138,13 @@ class XMonoWindow(QtGui.QMainWindow):
         _actTriggered(self.showStackWinAct, self.stackTraceWindow.show)
 
 
-
+        self.onTraceRecv.connect(self._recvFuncTrace)
         self.ui.funcCntTableWidget.customContextMenuRequested.connect(self._showFuncCntRMenu)
-
-        '''self.ui.filterLineEdit.returnPressed.connect(self._filterOutRequest)
-        self.ui.tabWidget.currentChanged.connect(self._traceCntShow)
+        self.ui.filterLineEdit.returnPressed.connect(self._filterOutRequest)
         self.ui.funcCntTableWidget.itemDoubleClicked.connect(self._funcDoubleClicked)
         self.cilDisasmed.connect(self.cilWindow.showCil)
+
+        '''self.ui.tabWidget.currentChanged.connect(self._traceCntShow)
         self.ui.cmdLineEdit.returnPressed.connect(self._cmdHandle)
         self.stackTraceWindow.deleteMethod.connect(self._traceMethod)
         self.stackTraceWindow.selectMethod.connect(self._disasmMethod)
@@ -155,15 +156,16 @@ class XMonoWindow(QtGui.QMainWindow):
 
     def _jdwpInit(self):
         erro = False
-        try:
-            self.sess = Session(11211,None)
+        '''try:
+            self.sess = Session(19530,None)
         except HandshakeError:
             erro = True
             self._ecmdErr(u"进程出错")
         except:
             erro = True
             self._ecmdErr(u"adb 运行失败")
-        if erro: return False
+        if erro: return False'''
+        self.sess = Session(19530,None)
         self._ecmdConnected()
         self.sess.initCb()
         self.vm = DalvkVm(self.sess)
@@ -195,7 +197,7 @@ class XMonoWindow(QtGui.QMainWindow):
     def _stopTrace(self):
         self.startTraceAct.setEnabled(True)
         self.stopTraceAct.setEnabled(False)
-        self.vm.end_trace(self._recvFuncTrace)
+        self.vm.end_trace(self.recvFuncTraceWraper)
         self.ui.funcGroupBox.setTitle (u"暂无跟踪结果...")
 
     def _traceLogFilterOut(self, data):
@@ -210,7 +212,11 @@ class XMonoWindow(QtGui.QMainWindow):
 
     def _funcTraceCntFilteShow(self):
         d = {}
-        f_k = self._traceLogFilterOut(self._traceFuncCntDict.keys())
+        namelist = []
+        b = self._traceFuncCntDict
+        for key in self._traceFuncCntDict.keys():
+            namelist.append(key)
+        f_k = self._traceLogFilterOut(namelist)
         for k in f_k:
             d[k] = self._traceFuncCntDict[k]
         self._traceCntShow(d)
@@ -237,6 +243,7 @@ class XMonoWindow(QtGui.QMainWindow):
         w.setHorizontalHeaderLabels(labels)
         w.horizontalHeader().setResizeMode(1, QtGui.QHeaderView.Stretch)
         w.horizontalHeader().setResizeMode(0, QtGui.QHeaderView.ResizeToContents)
+        w.horizontalHeader().setResizeMode(2, QtGui.QHeaderView.ResizeToContents)
         w.verticalHeader().setResizeMode(QtGui.QHeaderView.ResizeToContents)
         w.horizontalHeader().show()
         w.verticalHeader().hide()
@@ -256,43 +263,58 @@ class XMonoWindow(QtGui.QMainWindow):
         w.sortItems(0, QtCore.Qt.AscendingOrder)
 
     def _traceCntHandle(self, reader):
+        sort = 1
         for m in reader.callInfo:
             if m["method_action"]:
                 method_info = reader.funcData[m["method_id"]]
                 funcName = method_info["method_name"]
-                if method_info["method_name"] in self._traceFuncCntDict.keys():
-                    data = self._traceFuncCntDict[funcName]
+                className = method_info["class_name"]
+                jniName = method_info["jni"]
+                parfunc = funcName+TraceReader.jniparse(jniName)
+                fullFuncName = '@'.join([className,parfunc])
+
+                if fullFuncName in self._traceFuncCntDict.keys():
+                    data = self._traceFuncCntDict[fullFuncName]
                     callCnt = data[0]
-                    self._traceFuncCntDict[funcName] = (callCnt,data[1])
+                    callCnt += 1
+                    self._traceFuncCntDict[fullFuncName] = (callCnt,data[1],data[2])
                 else:
-                    self._traceFuncCntDict[funcName] = (1, 2)
-                #self._traceFuncCntDict[method_info["method_name"]] = (int(item[1]), int(item[2]))
+                    self._traceFuncCntDict[fullFuncName] = (1, sort,m["method_id"])
+                    sort += 1
         self._funcTraceCntFilteShow()
 
+    def recvFuncTraceWraper(self, reader):
+        #print "enter recvFuncTraceWraper"
+        self.onTraceRecv.emit(reader)
     def _recvFuncTrace(self, reader):
         self.log.d(u"recv func trace data : {0}".format(123))
         self._traceCntHandle(reader)
-        #self.ui.funcGroupBox.setTitle (u"函数 : {0}".format(len(self._traceFuncCntDict)))
+        self.ui.funcGroupBox.setTitle (u"函数 : {0}".format(len(self._traceFuncCntDict)))
 
     def _funcDoubleClicked(self, item):
         if item.column() != 0:
-            item = self.ui.funcCntTableWidget.item(item.row(), 0)
+            item = self.ui.funcCntTableWidget.item(item.row(), 1)
         s = item.text()
         self._disasmMethod(str(s))
 
     def _disasmMethod(self, s):
-        s = str(s)
-        p = "\[(.*)\].*\[(.*)\]"
-        r = re.search(p, s)
-        if r == None:
-            self.log.e(u"无法从{0}中提取需要的信息".format(s))
-            return
-        g = r.groups()
-        req = xmono_pb2.DisasmMethodReq()
-        req.method_token = int(g[1], 16)
-        req.image_name = g[0]
-        pkg = ecmd.EcmdPacket(XMONO_ID_DISASM_METHOD_REP, req.SerializeToString())
-        self._ecmd.sendPacket(pkg)
+        d = self._traceFuncCntDict
+        vm = self.vm
+        ctxt = self.sess.ctxt
+        namelist = s.split('@')
+        funcNameWithPar = namelist[1]
+        clsName = namelist[0]
+        nPos = funcNameWithPar.index('(')
+        funcName = funcNameWithPar[:nPos]
+        mId = d[s][2]
+        clsName = "L"+clsName+";"
+        print clsName
+        clsObj = vm.getClass(clsName)
+        mObj = ctxt.objpool(MethodContext,clsObj.rtId,mId.self.sess)
+        print mObj.name
+        #print "%s mId:%x" %(funcName,mId)
+        self.cilDisasmed.emit(s)
+
 
     def _replaceMethod(self, iname, token, t):
         code = t[0]

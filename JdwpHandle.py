@@ -4,6 +4,7 @@
 #description: Jdwp协议操作
 
 from ctypes import *
+from threading import *
 import re
 import JdwpBuf
 import JdwpNet
@@ -92,6 +93,7 @@ class Session(object):
         self._traceDict = {}
         self._eventDict = {}
         self.sendbuf = JdwpBuf.PyBuf()
+        self.ctxt = Context()
         self.conn = JdwpNet.connect(JdwpNet.forward(pid, dev))
 
     def initCb(self):
@@ -137,6 +139,7 @@ class MethodContext(object):
         self.methId = methId
         self.rtId = rtId
         self.funcMap = {}
+        self.name = "test"
 
     def setbreak(self,idx,callback_func):
         lens = JDWP_EVENT_SIZE
@@ -449,10 +452,10 @@ class DalvkVm(object):
     def __init__(self, sess):
         self.sess = sess
         self.traceCb = None
-        self.classList = []
+        self.classDict = {}
         self.classes()
     def classes(self):
-        if len(self.classList):
+        if len(self.classDict):
             return self.classDict
         return self.getallclass()
     def getClass(self,clsName):
@@ -467,13 +470,15 @@ class DalvkVm(object):
         if not code:
             buf = JdwpBuf.PyBuf(data)
             classCnt = buf.unpackU32()
-            for i in range(classCnt[0]):
+            for i in range(0,classCnt[0]):
                 refTypeTag = buf.unpackU8()
                 refTypeId = buf.unpackU64()
                 strlen,strClassName = buf.unpackStr()
-                status = buf.unpackU16()
+                strlen,strgen = buf.unpackStr()
+                status = buf.unpackU32()
                 if refTypeTag==1:
-                    self.classDict[strClassName] = ctxt.objpool(ClassType, refTypeId, self.sess)
+                    self.classDict[strClassName] = self.sess.ctxt.objpool(ClassType, refTypeId, self.sess)
+                    #self.classDict[strClassName] = ClassType(refTypeId, self.sess)
                         
         return self.classDict
 

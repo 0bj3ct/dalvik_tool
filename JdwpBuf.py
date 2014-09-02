@@ -61,11 +61,9 @@ class PyBuf(object):
     def unpackStr(self):
         size = struct.calcsize('!I')
         s = self.buf[self.pos:self.pos+size]
-        print repr(s[self.pos:])
         strlen = struct.unpack('!I',s)[0]
         self.pos += size
         data = self.buf[self.pos:self.pos+int(strlen)]
-        print strlen
         self.pos += int(strlen)
         return strlen,data
     def unpack(self,fmt):
