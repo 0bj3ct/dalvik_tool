@@ -70,7 +70,7 @@ def connect(addr, portno = None, trace=False):
         try:
             if trace:
                 print ":: send:", repr(data)
-            print ":: send:", repr(data)
+                print ":: send:", repr(data)
             conn.sendall(data)
         except Exception as exc:
             raise EOF(exc)

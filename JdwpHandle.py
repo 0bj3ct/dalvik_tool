@@ -366,15 +366,17 @@ class ReferenceType(object):
         self.sess = sess
         self.rtTag = rtTag
         self.rtId = rtId
-        self,jni,self.gen = self.getSignature()
-        self.name = self.getName(jni)
+        self.jni,self.gen = self.getSignature()
+        self.name = self.getName(self.jni)
+
+    #todo 
     def load_methods(self):
         tid = self.rtId
         sess = self.sess
         conn = sess.conn
         lens = 8
         sess.sendbuf.clear()
-        sess.packJdwpHeader(lens,ident,2,15)
+        sess.packJdwpHeader(lens,2,15)
         sess.sendbuf.packU64(self.rtId)
         code,data = conn.request(sess.sendbuf)
 
@@ -397,19 +399,18 @@ class ReferenceType(object):
         conn = sess.conn
         lens = 8
         sess.sendbuf.clear()
-        sess.packJdwpHeader(lens,ident,2,1)
-        sess.sendbuf.packU64(self.rtId)
+        sess.packJdwpHeader(lens,2,13)
+        sess.sendbuf.packU64(rtId)
         code,data = conn.request(sess.sendbuf)
 
         if not code:
-            buf = JdwpBuf.buf(data)
+            buf = JdwpBuf.PyBuf(data)
             strlen,jni = buf.unpackStr()
             strlen,gen = buf.unpackStr()
             return jni,gen
         else:
-            print 'erro'
             return None,None
-    def getName(self,jni):
+    def getName(self,name):
         if name.startswith('L'): name = name[1:]
         if name.endswith(';'): name = name[:-1]
         name = name.replace('/', '.')
@@ -421,7 +422,7 @@ rtTag :1 ClassType
 '''
 class ClassType(ReferenceType):
     def __init__(self, refTypeId, sess):
-        RefType.__init__(self, sess, 1, refTypeId)
+        ReferenceType.__init__(self, 1, refTypeId, sess)
         
     def __str__(self):
         return self.name
@@ -476,9 +477,10 @@ class DalvkVm(object):
                 strlen,strClassName = buf.unpackStr()
                 strlen,strgen = buf.unpackStr()
                 status = buf.unpackU32()
-                if refTypeTag==1:
-                    self.classDict[strClassName] = self.sess.ctxt.objpool(ClassType, refTypeId, self.sess)
-                    #self.classDict[strClassName] = ClassType(refTypeId, self.sess)
+                #print "refTypeTag %d" % refTypeTag
+                if int(refTypeTag[0]) == 1:
+                    self.classDict[strClassName] = self.sess.ctxt.objpool(ClassType, refTypeId[0], self.sess)
+
                         
         return self.classDict
 
@@ -529,8 +531,8 @@ class Context(object):
         with self.lock:
             obj = self.pools.get(ids)
             if obj is None:
-                obj = ident[0](*ids[1:])  #构造一个obj出来
-                self.pools[ident] = obj
+                obj = ids[0](*ids[1:])  #构造一个obj出来
+                self.pools[ids] = obj
             return obj
     #def obj(self,objtype,*ident)
 

@@ -308,9 +308,8 @@ class XMonoWindow(QtGui.QMainWindow):
         funcName = funcNameWithPar[:nPos]
         mId = d[s][2]
         clsName = "L"+clsName+";"
-        print clsName
         clsObj = vm.getClass(clsName)
-        mObj = ctxt.objpool(MethodContext,clsObj.rtId,mId.self.sess)
+        mObj = ctxt.objpool(MethodContext,clsObj.rtId,mId,self.sess)
         print mObj.name
         #print "%s mId:%x" %(funcName,mId)
         self.cilDisasmed.emit(s)
