@@ -37,7 +37,7 @@ class PyBuf(object):
         s = self.buf[self.pos:self.pos+size]
         data = struct.unpack('!B',s)
         self.pos += size
-        return data
+        return data[0]
     def unpackU16(self):
         size = struct.calcsize('!H')
         print self.pos
@@ -45,19 +45,19 @@ class PyBuf(object):
         print len(s)
         data = struct.unpack('!H',s)
         self.pos += size
-        return data
+        return data[0]
     def unpackU32(self):
         size = struct.calcsize('!I')
         s = self.buf[self.pos:self.pos+size]
         data = struct.unpack('!I',s)
         self.pos += size
-        return data
+        return data[0]
     def unpackU64(self):
         size = struct.calcsize('!Q')
         s = self.buf[self.pos:self.pos+size]
         data = struct.unpack('!Q',s)
         self.pos += size
-        return data
+        return data[0]
     def unpackStr(self):
         size = struct.calcsize('!I')
         s = self.buf[self.pos:self.pos+size]

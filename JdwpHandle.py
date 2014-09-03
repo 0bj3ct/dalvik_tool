@@ -112,9 +112,11 @@ class Session(object):
         buf = JdwpBuf.PyBuf(data)
         suspendPolicy = buf.unpackU8()
         eventCnt = buf.unpackU32()
-        requestID = buf.unpackU32()
+        eventKind = buf.unpackU8()
+        requestId = buf.unpackU32()
         tid = buf.unpackU64()
         bpInfo = self._eventDict[requestId]
+        print bpInfo.callbackFunc
         bpInfo.callbackFunc(bpInfo,tid)
     def _traceHandle(self,cmds,data):
         for k in self._traceDict.keys():
@@ -141,13 +143,12 @@ class MethodContext(object):
         self.funcMap = {}
         self.name = "test"
 
-    def setbreak(self,idx,callback_func):
+    def setbreak(self,idx,callback_func,key):
         lens = JDWP_EVENT_SIZE
         sendbuf = self.sess.sendbuf
         sendbuf.clear()
         self.sess.packJdwpHeader(lens,15,1)
         
-        #todo
         if idx==0:
             sendbuf.packU8(EK_METHOD_ENTRY)  #eventKind
             sendbuf.packU8(1) #suspendPolicy
@@ -159,6 +160,8 @@ class MethodContext(object):
             sendbuf.packU64(self.rtId)
             sendbuf.packU32(self.methId)
             sendbuf.packU64(idx)
+            for i in xrange(39,67):
+                sendbuf.packU8(0)
         else:
             sendbuf.packU8(EK_BREAKPOINT)  #eventKind
             sendbuf.packU8(1) #suspendPolicy
@@ -170,7 +173,12 @@ class MethodContext(object):
             sendbuf.packU64(self.rtId)
             sendbuf.packU32(self.methId)
             sendbuf.packU64(idx)
+
+            #len= 39,总共大小67，不足的填充为0
+            for i in xrange(39,67):
+                sendbuf.packU8(0)
         code,data = self.sess.conn.request(sendbuf)
+        print "suss"
         if not code:
             recvbuf = JdwpBuf.PyBuf(data)
             requestId = recvbuf.unpackU32()
@@ -179,11 +187,12 @@ class MethodContext(object):
             bp.requestId = requestId
             bp.loc = loc
             bp.callbackFunc = callback_func
-            self.sess.addeventHandle(bp,requestId)
+            self.sess.addeventHandle(requestId,bp)
+            self.funcMap[key] = requestId
         else:
             print 'erro'
-    def unsetbreak(self,callback_func):
-        requestId = self.funcMap[callback_func]
+    def unsetbreak(self,key):
+        requestId = self.funcMap[key]
         bp = self.sess.deleventHandle(requestId)
         eventKind = bp.eventKind
         lens = 5
@@ -235,12 +244,12 @@ class MethodContext(object):
         if not code:
             buf = JdwpBuf.PyBuf(data)
             argCnt = buf.unpackU32()
-            slotCnt - buf.unpackU32()
+            slotCnt = buf.unpackU32()
             for i in range(0,slotCnt):
                 codeIndex = buf.unpackU64()
-                name = buf.unpackStr()
-                jni = buf.unpackStr()
-                gen = buf.unpackStr()
+                strlen,name = buf.unpackStr()
+                strlen,jni = buf.unpackStr()
+                strlen,gen = buf.unpackStr()
                 length = buf.unpackU32()
                 slot_id = buf.unpackU32()
                 slot = Slot(codeIndex,name,jni,gen,length,slot_id)
@@ -251,7 +260,7 @@ class MethodContext(object):
         return slots
 
 class FrameInfo(object):
-    def __init(self,frameID,loc,tid,sess):
+    def __init__(self,frameID,loc,tid,sess):
         self.frameID = frameID
         self.loc = loc
         self.tid = tid
@@ -259,33 +268,38 @@ class FrameInfo(object):
     #todo
     def GetValues(self):
         vals = {}
-        if self.native: return vals  #如果是系统函数返回空
+        #if self.native: return vals  #如果是系统函数返回空
         
         sess = self.sess
-        sendbuf = sess.buffer()
-        method = ctxt.objpool(MethodContext,self.loc.rtId,self.loc.mId)
-        slots = method.getVariableTable
+        sendbuf = sess.sendbuf
+        ctxt = sess.ctxt
+        method = ctxt.objpool(MethodContext,self.loc.rtId,self.loc.mId,sess)
+        slots = method.getVariableTable()
         slotCnt = len(slots)
         lens = 8+8+4+5*slotCnt
 
         sendbuf.clear()
         self.sess.packJdwpHeader(lens,16,1)
         sendbuf.packU64(self.tid)
-        sendbuf.packU64(self.frameID)
-        slots = self.loc.slots  
-        buf.packU32(len(slots))
+        sendbuf.packU64(self.frameID)  
+        sendbuf.packU32(len(slots))
+        print "slots len:%d" % len(slots)
 
         for slot in slots:
-            buf.packU32(slot.slot)  #局部变量的索引值
-            buf.packU8(slot.tag) #标志变量类型的标签
+            sendbuf.packU32(slot.slot)  #局部变量的索引值
+            tag = slot.signature[0]
+            print slot.signature
+            sendbuf.packU8(tag) #标志变量类型的标签
         code,data = self.sess.conn.request(sendbuf)
         if not code:
-            buf = JdwpBuf.PyBuf()
+            buf = JdwpBuf.PyBuf(data)
+            print "data len:%d" % len(data)
             ct = buf.unpackU32()
+            print "ct: %d" % ct
 
             for x in range(0, ct):
                 s = slots[x]
-                printHex(buf, 8)
+                #printHex(buf.buf, 8)
                 #vals[s.name] = unpack_value(sess, buf) #todo
         return vals
 
@@ -304,15 +318,15 @@ class ThreadContext(object):
             buf = JdwpBuf.PyBuf(data)
             cnt = buf.unpackU32()
         else:
-            print 'erro'
+            print 'framCnt erro'
         return cnt
     def frams(self):
         framsList = []
         lens = 16
+        cnt = self.framCnt()
         sendbuf = self.sess.sendbuf
         self.sess.sendbuf.clear()
         self.sess.packJdwpHeader(lens,11,6)
-        cnt = self.framCnt()
         sendbuf.packU64(self.tid)
         sendbuf.packU32(0)
         sendbuf.packU32(cnt)
@@ -320,7 +334,7 @@ class ThreadContext(object):
         if not code:
             buf = JdwpBuf.PyBuf(data)
             framesCount = buf.unpackU32()
-            for i in framesCount:
+            for i in range(framesCount):
                 frameID = buf.unpackU64()
 
                 #loc
@@ -330,30 +344,25 @@ class ThreadContext(object):
                 idx = buf.unpackU64()
 
                 loc = Location(typeTag,classId,methodId,idx)
-                framsList.append()
+                framsList.append((frameID,loc))
+            return framsList
         else:
-            print 'erro'
+            print 'frams erro'
     def suspend(self):
-        lens = 16
+        lens = 8
         self.sess.sendbuf.clear()
-        self.sess.packJdwpHeader(lens,199,1)
-        cnt = self.framCnt()
+        self.sess.packJdwpHeader(lens,11,2)
         self.sess.sendbuf.packU64(self.tid)
-        self.sess.sendbuf.packU32(0)
-        self.sess.sendbuf.packU32(cnt)
         code,data = self.sess.conn.request(self.sess.sendbuf)
         if not code:
             pass
         else:
             print 'erro'
     def resume(self):
-        lens = 16
+        lens = 8
         self.sess.sendbuf.clear()
-        self.sess.packJdwpHeader(lens,199,1)
-        cnt = self.framCnt()
+        self.sess.packJdwpHeader(lens,11,3)
         self.sess.sendbuf.packU64(self.tid)
-        self.sess.sendbuf.packU32(0)
-        self.sess.sendbuf.packU32(cnt)
         code,data = self.sess.conn.request(self.sess.sendbuf)
         if not code:
             pass
@@ -368,9 +377,10 @@ class ReferenceType(object):
         self.rtId = rtId
         self.jni,self.gen = self.getSignature()
         self.name = self.getName(self.jni)
+        self.methodMap = {}
 
     #todo 
-    def load_methods(self):
+    def methods(self):
         tid = self.rtId
         sess = self.sess
         conn = sess.conn
@@ -380,19 +390,23 @@ class ReferenceType(object):
         sess.sendbuf.packU64(self.rtId)
         code,data = conn.request(sess.sendbuf)
 
-        if code != 0:
-            raise RequestError(code)
+        if not code:
+            buf = JdwpBuf.PyBuf(data)
+            methCnt = buf.unpackU32()
+            for i in range(methCnt):
+                mid = buf.unpackU32()
+                strlen,name = buf.unpackStr()
+                strlen,jni = buf.unpackStr()
+                strlen,gen = buf.unpackStr()
+                flags = buf.unpackU32()
+                self.methodMap[mid] = (name,jni)
+        else:
+            print "methods erro"
+    def getMethodName(self,mId):
+        if len(self.methodMap)==0:
+            self.methods()
+        return self.methodMap[mId]
 
-        ct = buf.unpackU32()
-                
-        def load_method():
-            mid, name, jni, gen, flags = buf.unpack('m$$$i') #method_id str str str int
-            obj = pool(Method, sess, tid, mid)
-            obj.name = name
-            obj.jni = jni
-            obj.gen = gen
-            obj.flags = flags       
-            return obj
     def getSignature(self):
         rtId = self.rtId
         sess = self.sess
@@ -413,7 +427,6 @@ class ReferenceType(object):
     def getName(self,name):
         if name.startswith('L'): name = name[1:]
         if name.endswith(';'): name = name[:-1]
-        name = name.replace('/', '.')
         return name
 '''
 rtTag :1 ClassType
@@ -471,15 +484,15 @@ class DalvkVm(object):
         if not code:
             buf = JdwpBuf.PyBuf(data)
             classCnt = buf.unpackU32()
-            for i in range(0,classCnt[0]):
+            for i in range(0,classCnt):
                 refTypeTag = buf.unpackU8()
                 refTypeId = buf.unpackU64()
                 strlen,strClassName = buf.unpackStr()
                 strlen,strgen = buf.unpackStr()
                 status = buf.unpackU32()
                 #print "refTypeTag %d" % refTypeTag
-                if int(refTypeTag[0]) == 1:
-                    self.classDict[strClassName] = self.sess.ctxt.objpool(ClassType, refTypeId[0], self.sess)
+                if int(refTypeTag) == 1:
+                    self.classDict[strClassName] = self.sess.ctxt.objpool(ClassType, refTypeId, self.sess)
 
                         
         return self.classDict

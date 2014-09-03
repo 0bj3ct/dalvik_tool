@@ -54,6 +54,7 @@ class XMonoWindow(QtGui.QMainWindow):
     #声明信号槽
     cilDisasmed = QtCore.pyqtSignal(str)
     onTraceRecv = QtCore.pyqtSignal(object)
+    onStacktraceRecv = QtCore.pyqtSignal(object,long)
 
     def __init__(self, parent=None):
         QtGui.QMainWindow.__init__(self, parent)
@@ -134,20 +135,22 @@ class XMonoWindow(QtGui.QMainWindow):
         #_actTriggered(self.connectAct, self._connect)
         _actTriggered(self.startTraceAct, self._startTrace)
         _actTriggered(self.stopTraceAct, self._stopTrace)
-        #_actTriggered(self.stackTraceAct, self._stackTraceMethod)
+        _actTriggered(self.stackTraceAct, self._stackTraceMethod)
         _actTriggered(self.showStackWinAct, self.stackTraceWindow.show)
 
 
         self.onTraceRecv.connect(self._recvFuncTrace)
+        self.onStacktraceRecv.connect(self._recvStackTrace)
         self.ui.funcCntTableWidget.customContextMenuRequested.connect(self._showFuncCntRMenu)
         self.ui.filterLineEdit.returnPressed.connect(self._filterOutRequest)
         self.ui.funcCntTableWidget.itemDoubleClicked.connect(self._funcDoubleClicked)
         self.cilDisasmed.connect(self.cilWindow.showCil)
+        self.stackTraceWindow.deleteMethod.connect(self._untraceMethod)
+        self.stackTraceWindow.selectMethod.connect(self._disasmMethod)
+
 
         '''self.ui.tabWidget.currentChanged.connect(self._traceCntShow)
         self.ui.cmdLineEdit.returnPressed.connect(self._cmdHandle)
-        self.stackTraceWindow.deleteMethod.connect(self._traceMethod)
-        self.stackTraceWindow.selectMethod.connect(self._disasmMethod)
         self.cilWindow.compiled.connect(self._replaceMethod)'''
 
     def _showFuncCntRMenu(self, pos):
@@ -165,7 +168,7 @@ class XMonoWindow(QtGui.QMainWindow):
             erro = True
             self._ecmdErr(u"adb 运行失败")
         if erro: return False'''
-        self.sess = Session(19530,None)
+        self.sess = Session(3240,None)
         self._ecmdConnected()
         self.sess.initCb()
         self.vm = DalvkVm(self.sess)
@@ -297,7 +300,9 @@ class XMonoWindow(QtGui.QMainWindow):
         s = item.text()
         self._disasmMethod(str(s))
 
+    #todo fix it
     def _disasmMethod(self, s):
+        s = str(s)
         d = self._traceFuncCntDict
         vm = self.vm
         ctxt = self.sess.ctxt
@@ -346,26 +351,27 @@ class XMonoWindow(QtGui.QMainWindow):
         if item == None:
             return
         if item.column() != 0:
-            item = self.ui.funcCntTableWidget.item(item.row(), 0)
+            item = self.ui.funcCntTableWidget.item(item.row(), 1)
         return str(item.text())
 
+    def _untraceMethod(self, s):
+        self._traceMethod(s, False)
     def _traceMethod(self, s, sw):
         s = str(s)
-        p = "\[(.*)\].*\[(.*)\]"
-        r = re.search(p, s)
-        if r == None:
-            self.log.e(u"无法从{0}中提取需要的信息".format(s))
-            return
-        g = r.groups()
-        req = xmono_pb2.StackTraceReq()
-        req.image_name = g[0]
-        req.method_token = int(g[1], 16)
+        d = self._traceFuncCntDict
+        ctxt = self.sess.ctxt
+        namelist = s.split('@')
+        funcNameWithPar = namelist[1]
+        clsName = namelist[0]
+        mId = d[s][2]
+        clsName = "L"+clsName+";"
+        clsObj = self.vm.getClass(clsName)
+        methObj = ctxt.objpool(MethodContext,clsObj.rtId,mId,self.sess)
         if sw:
-            pck_id = XMONO_ID_STACK_TRACE_REP
+            methObj.setbreak(0,self._recvStackTraceWraper,s)
         else:
-            pck_id = XMONO_ID_UNSTACK_TRACE_REP
-        pkg = ecmd.EcmdPacket(pck_id, req.SerializeToString())
-        self._ecmd.sendPacket(pkg)
+            methObj.unsetbreak(s)
+
 
     def _stackTraceMethod(self):
         s = self._getFuncCntItemStr()
@@ -398,13 +404,28 @@ class XMonoWindow(QtGui.QMainWindow):
         for i in rsp.id:
             self.log.i(u"\t{0}".format(i))
 
-    def _recvStackTrace(self, packet):
-        rsp = xmono_pb2.StackTraceRsp()
-        rsp.ParseFromString(packet.data)
-        if rsp.err == False:
-            self.log.e(u"{0}".format(rsp.err_str))
-            return
-        l = rsp.stack.split("\n")[:-1]
+    def _recvStackTraceWraper(self,bpInfo,tid):
+        self.onStacktraceRecv.emit(bpInfo,tid)
+
+    def _recvStackTrace(self, bpInfo, tid):
+        ctxt = self.sess.ctxt
+        l = []
+        tcObj  = ctxt.objpool(ThreadContext,tid,self.sess)
+        framList = tcObj.frams()
+        for  fram in framList:
+            fId = fram[0]
+            loc = fram[1]
+            framObj = ctxt.objpool(FrameInfo,fId,loc,tid,self.sess)
+            framObj.GetValues()
+            clsObj = ctxt.objpool(ClassType,loc.rtId,self.sess)
+            clsName = clsObj.name
+            funcName = clsObj.getMethodName(loc.mId)
+            methObj = ctxt.objpool(MethodContext,loc.rtId,loc.mId,self.sess)
+            parfunc = funcName[0]+TraceReader.jniparse(funcName[1])
+            funcFullName = '@'.join([clsName,parfunc])
+            l.append((funcFullName,loc.idx))
+        print "333333333333"
+        tcObj.resume()
         self.stackTraceWindow.addTraceResult(l)
 
     def _print2Log(self, msg, level):
