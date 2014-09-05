@@ -168,7 +168,7 @@ class XMonoWindow(QtGui.QMainWindow):
             erro = True
             self._ecmdErr(u"adb 运行失败")
         if erro: return False'''
-        self.sess = Session(3240,None)
+        self.sess = Session(17518,None)
         self._ecmdConnected()
         self.sess.initCb()
         self.vm = DalvkVm(self.sess)
@@ -412,19 +412,23 @@ class XMonoWindow(QtGui.QMainWindow):
         l = []
         tcObj  = ctxt.objpool(ThreadContext,tid,self.sess)
         framList = tcObj.frams()
+        bGetvaule = True
         for  fram in framList:
             fId = fram[0]
             loc = fram[1]
-            framObj = ctxt.objpool(FrameInfo,fId,loc,tid,self.sess)
-            framObj.GetValues()
+            args = []
             clsObj = ctxt.objpool(ClassType,loc.rtId,self.sess)
             clsName = clsObj.name
             funcName = clsObj.getMethodName(loc.mId)
             methObj = ctxt.objpool(MethodContext,loc.rtId,loc.mId,self.sess)
             parfunc = funcName[0]+TraceReader.jniparse(funcName[1])
             funcFullName = '@'.join([clsName,parfunc])
-            l.append((funcFullName,loc.idx))
-        print "333333333333"
+            if cmp(funcFullName,"com/android/internal/os/ZygoteInit$MethodAndArgsCaller@run()") == 0:
+                bGetvaule = False
+            if bGetvaule:
+                framObj = ctxt.objpool(FrameInfo,fId,loc,tid,self.sess)
+                args = framObj.GetValues()
+            l.append((funcFullName,loc.idx,args))
         tcObj.resume()
         self.stackTraceWindow.addTraceResult(l)
 

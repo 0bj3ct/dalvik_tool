@@ -74,7 +74,12 @@ class StackTraceWindow(QtGui.QMainWindow):
         self.stackList.append(l)
         root = QtGui.QTreeWidgetItem(None, QtCore.QStringList(l[0][0]))
         for i in l:
-            root.addChild(QtGui.QTreeWidgetItem(None, QtCore.QStringList(i[0])))
+            child = QtGui.QTreeWidgetItem(None, QtCore.QStringList(i[0]))
+            args = i[2]
+            for key in args:
+                arg = key[0]+"="+str(key[1])
+                child.addChild(QtGui.QTreeWidgetItem(None,QtCore.QStringList(arg)))
+            root.addChild(child)
         self.ui.stackTraceTreeWidget.addTopLevelItem(root)
 
     def addMethod(self, func):

@@ -257,7 +257,7 @@ class MethodContext(object):
 
         else:
             print 'erro'
-        return slots
+        return slots,argCnt
 
 class FrameInfo(object):
     def __init__(self,frameID,loc,tid,sess):
@@ -267,14 +267,13 @@ class FrameInfo(object):
         self.sess = sess
     #todo
     def GetValues(self):
-        vals = {}
-        #if self.native: return vals  #如果是系统函数返回空
-        
+        vals = []
+        if self.native: return vals  #如果是系统函数返回空
         sess = self.sess
         sendbuf = sess.sendbuf
         ctxt = sess.ctxt
         method = ctxt.objpool(MethodContext,self.loc.rtId,self.loc.mId,sess)
-        slots = method.getVariableTable()
+        slots,argCnt = method.getVariableTable()
         slotCnt = len(slots)
         lens = 8+8+4+5*slotCnt
 
@@ -283,25 +282,66 @@ class FrameInfo(object):
         sendbuf.packU64(self.tid)
         sendbuf.packU64(self.frameID)  
         sendbuf.packU32(len(slots))
-        print "slots len:%d" % len(slots)
 
         for slot in slots:
             sendbuf.packU32(slot.slot)  #局部变量的索引值
             tag = slot.signature[0]
             print slot.signature
-            sendbuf.packU8(tag) #标志变量类型的标签
+            sendbuf.packU8(ord(tag)) #标志变量类型的标签
         code,data = self.sess.conn.request(sendbuf)
         if not code:
             buf = JdwpBuf.PyBuf(data)
-            print "data len:%d" % len(data)
             ct = buf.unpackU32()
             print "ct: %d" % ct
 
             for x in range(0, ct):
                 s = slots[x]
-                #printHex(buf.buf, 8)
-                #vals[s.name] = unpack_value(sess, buf) #todo
+
+                #unpack_value
+                #print "%s:%d" % (s.name,self.unpack_value(s.signature[0],buf))
+                vals.append((s.name,self.unpack_value(s.signature[0],buf)))
         return vals
+
+    def unpack_value(self,tag,buf):
+        if tag=="[":
+            return buf.unpackU64()
+        elif tag=="B":
+            return buf.unpackU8()
+        elif tag=="C":
+            return buf.unpackU16()
+        elif tag=="L":
+            return buf.unpackU64()
+        elif tag=="F":
+            return buf.unpackU32()
+        elif tag=="D":
+            return buf.unpackU64()
+        elif tag=="I":
+            return buf.unpackU32()
+        elif tag=="J":
+            return buf.unpackU64()
+        elif tag=="S":
+            return buf.unpackU16()
+        elif tag=="V":
+            return 99999
+            #return buf.unpackU64()
+        elif tag=="Z":
+            return buf.unpackU8()
+        elif tag=="s":
+            return buf.unpackU64()
+        elif tag=="t":
+            return buf.unpackU64()
+        elif tag=="g":
+            return buf.unpackU64()
+        elif tag=="l":
+            return buf.unpackU64()
+        elif tag=="c":
+            return buf.unpackU64()
+        else:
+            print "unpack_value erro"
+    @property
+    def native(self):
+        print self.loc.idx 
+        return self.loc.idx == -1
 
 class ThreadContext(object):
     def __init__(self, tid, sess):
@@ -341,7 +381,7 @@ class ThreadContext(object):
                 typeTag = buf.unpackU8()
                 classId = buf.unpackU64()
                 methodId = buf.unpackU32()
-                idx = buf.unpackU64()
+                idx = buf.unpack64()
 
                 loc = Location(typeTag,classId,methodId,idx)
                 framsList.append((frameID,loc))

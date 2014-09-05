@@ -58,6 +58,12 @@ class PyBuf(object):
         data = struct.unpack('!Q',s)
         self.pos += size
         return data[0]
+    def unpack64(self):
+        size = struct.calcsize('!q')
+        s = self.buf[self.pos:self.pos+size]
+        data = struct.unpack('!q',s)
+        self.pos += size
+        return data[0]
     def unpackStr(self):
         size = struct.calcsize('!I')
         s = self.buf[self.pos:self.pos+size]
