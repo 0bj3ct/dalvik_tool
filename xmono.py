@@ -52,7 +52,7 @@ class XMonoWindow(QtGui.QMainWindow):
     """xmono主类"""
 
     #声明信号槽
-    cilDisasmed = QtCore.pyqtSignal(str)
+    cilDisasmed = QtCore.pyqtSignal(str,QtCore.QByteArray)
     onTraceRecv = QtCore.pyqtSignal(object)
     onStacktraceRecv = QtCore.pyqtSignal(object,long)
 
@@ -71,7 +71,7 @@ class XMonoWindow(QtGui.QMainWindow):
         self._createToolBar()
         self._slotConnects()
         self._WinInit()
-        self._jdwpInit()
+        #self._jdwpInit()
         self._initVariate()
 
     def _initVariate(self):
@@ -132,7 +132,7 @@ class XMonoWindow(QtGui.QMainWindow):
 
     def _slotConnects(self):
         _actTriggered = lambda act,slot:self.connect(act, QtCore.SIGNAL("triggered()"), slot)
-        #_actTriggered(self.connectAct, self._connect)
+        _actTriggered(self.connectAct, self._connect)
         _actTriggered(self.startTraceAct, self._startTrace)
         _actTriggered(self.stopTraceAct, self._stopTrace)
         _actTriggered(self.stackTraceAct, self._stackTraceMethod)
@@ -147,11 +147,13 @@ class XMonoWindow(QtGui.QMainWindow):
         self.cilDisasmed.connect(self.cilWindow.showCil)
         self.stackTraceWindow.deleteMethod.connect(self._untraceMethod)
         self.stackTraceWindow.selectMethod.connect(self._disasmMethod)
-
+        self.ui.cmdLineEdit.returnPressed.connect(self._cmdHandle)
 
         '''self.ui.tabWidget.currentChanged.connect(self._traceCntShow)
-        self.ui.cmdLineEdit.returnPressed.connect(self._cmdHandle)
         self.cilWindow.compiled.connect(self._replaceMethod)'''
+
+    def _connect(self):
+        self._jdwpInit()
 
     def _showFuncCntRMenu(self, pos):
         p = self.ui.funcCntTableWidget.mapToGlobal(pos)
@@ -168,7 +170,7 @@ class XMonoWindow(QtGui.QMainWindow):
             erro = True
             self._ecmdErr(u"adb 运行失败")
         if erro: return False'''
-        self.sess = Session(17518,None)
+        self.sess = Session(14427,None)
         self._ecmdConnected()
         self.sess.initCb()
         self.vm = DalvkVm(self.sess)
@@ -186,8 +188,12 @@ class XMonoWindow(QtGui.QMainWindow):
     def _cmdHandle(self):
         t = self.ui.cmdLineEdit.text()
         self.ui.cmdText.append(t)
-        self.ui.cmdText.append(">>{0}".format(eval(str(t))))
         self.ui.cmdLineEdit.clear()
+        cmds = str(t)
+        #do thing
+        args = cmds.split(' ')
+        if cmp(args[0],'inject') == 0:
+            pid = args[1]
 
     def _startTrace(self):
         self._traceFuncCntDict.clear()
@@ -300,7 +306,6 @@ class XMonoWindow(QtGui.QMainWindow):
         s = item.text()
         self._disasmMethod(str(s))
 
-    #todo fix it
     def _disasmMethod(self, s):
         s = str(s)
         d = self._traceFuncCntDict
@@ -315,9 +320,9 @@ class XMonoWindow(QtGui.QMainWindow):
         clsName = "L"+clsName+";"
         clsObj = vm.getClass(clsName)
         mObj = ctxt.objpool(MethodContext,clsObj.rtId,mId,self.sess)
-        print mObj.name
         #print "%s mId:%x" %(funcName,mId)
-        self.cilDisasmed.emit(s)
+        codelen,code = mObj.getBytecodes()
+        self.cilDisasmed.emit(s,code)
 
 
     def _replaceMethod(self, iname, token, t):
@@ -377,16 +382,6 @@ class XMonoWindow(QtGui.QMainWindow):
         s = self._getFuncCntItemStr()
         self._traceMethod(s, True)
         self.stackTraceWindow.addMethod(s)
-
-    def _recvDisasmMethod(self, packet):
-        rsp = xmono_pb2.DisasmMethodRsp()
-        rsp.ParseFromString(packet.data)
-        if rsp.err == False:
-            self.log.e(u"disasm method err : {0}".format(rsp.err_str))
-            return
-        self._code = rsp.asm_code
-        print type(self._code)
-        self.cilDisasmed.emit(rsp.disasm_code)
 
     def _recvReplaceMethodRsp(self, packet):
         rsp = xmono_pb2.ReplaceMethodRsp()

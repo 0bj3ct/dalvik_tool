@@ -210,12 +210,15 @@ class MethodContext(object):
     def getBytecodes(self):
         lens = 12
         self.sess.sendbuf.clear()
-        self.sess.packJdwpHeader(lens,199,1)
+        self.sess.packJdwpHeader(lens,6,3)
         self.sess.sendbuf.packU64(self.rtId)
         self.sess.sendbuf.packU32(self.methId)
         code,data = self.sess.conn.request(self.sess.sendbuf)
         if not code:
-            pass
+            buf = JdwpBuf.PyBuf(data)
+            codelen = buf.unpackU32()
+            bytecode = data[4:codelen*2]
+            return codelen,bytecode
         else:
             print 'erro'
 

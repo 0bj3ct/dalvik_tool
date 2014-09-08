@@ -8,6 +8,7 @@ from PyQt4 import QtCore, QtGui
 import cilUI
 #import ilopcode
 import re, struct
+import decompli
 
 class CilWindow(QtGui.QMainWindow):
     """cil主类"""
@@ -34,10 +35,18 @@ class CilWindow(QtGui.QMainWindow):
     def _slotConnects(self):
         self.compileAct.triggered.connect(self._compile)
 
-    def showCil(self, code):
+    def showCil(self, funcName, code):
         self.show()
+        code = str(code)
+        d = decompli.DexDecompiler()
+        d.load_bytearray(code)
+        bytecode = d.disassemble()
         self.ui.ilTextBrowser.clear()
-        self.ui.ilTextBrowser.append(code)
+        funcName = funcName+':'
+        self.ui.ilTextBrowser.append(funcName)
+        for x in bytecode:
+            line = 'line_'+str(x[0])+':    '+x[1]
+            self.ui.ilTextBrowser.append(line)
 
     def WinInit(self):
         return
