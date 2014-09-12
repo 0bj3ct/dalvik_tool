@@ -1,0 +1,4 @@
+su
+cd /data/local/tmp
+chmod 777 ppinject
+./ppinject %pid /data/local/tmp/libppdvm.so HookJdwpProcessRequest

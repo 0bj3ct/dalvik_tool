@@ -242,6 +242,7 @@ InstructionSet = {
     #-----------------------------
     #(unused)
     #-----------------------------
+    0xec: ['breakpoint','bp'],
     0xf0: ['+invoke-object-init-range','35c'],
     0xf1: ['return-void-barrier'],
     0xf2: ['+iget-quick','22c'],
@@ -432,7 +433,7 @@ class DexDecompiler:
         self.RawBytes = []
         self.Listing = []
         self.CalledMethods = []
-        self.OneWordInstructions = [0x00,0x01,0x04,0x07,0xf1]
+        self.OneWordInstructions = [0x00,0x01,0x04,0x07,0xf1,0xec]
         self.OneWordInstructions.extend(range(0x0a,0x13))
         self.OneWordInstructions.extend([0x1d,0x1e,0x21,0x27,0x28])
         self.OneWordInstructions.extend(range(0x3e,0x44))
@@ -697,6 +698,9 @@ class DexDecompiler:
         args = ' v{0:d}, #{1:d} // #{1: 017x}'.format(a51l['AA'],a51l['BBBBBBBBBBBBBBBB'])
         return args
 
+    def decode_bp_args(self,op):
+        return ''
+
     def decode_operation(self, op):
         if type(op) == str:
             iop = ord(op[0])
@@ -723,6 +727,7 @@ class DexDecompiler:
 
 def main():
     bytecode = test
+    print len(bytecode)
     if len(bytecode) > 0:
         d = DexDecompiler()
         d.load_bytearray(bytecode)

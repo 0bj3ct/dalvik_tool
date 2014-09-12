@@ -9,7 +9,7 @@ import cil, stack_trace
 import stack_trace
 import TraceReader
 import JdwpHandle
-import zlib
+import os
 import re
 from JdwpNet import *
 from JdwpHandle import *
@@ -66,6 +66,8 @@ class XMonoWindow(QtGui.QMainWindow):
         self.log.regHandle(self._print2Log)
         #self._ecmd = ecmd.Ecmd(self)
         self.sess = None
+        self.pid = 0
+        self.dex = None
         self._createActions()
         self._createMenus()
         self._createToolBar()
@@ -170,7 +172,7 @@ class XMonoWindow(QtGui.QMainWindow):
             erro = True
             self._ecmdErr(u"adb 运行失败")
         if erro: return False'''
-        self.sess = Session(14427,None)
+        self.sess = Session(self.pid,None)
         self._ecmdConnected()
         self.sess.initCb()
         self.vm = DalvkVm(self.sess)
@@ -193,7 +195,19 @@ class XMonoWindow(QtGui.QMainWindow):
         #do thing
         args = cmds.split(' ')
         if cmp(args[0],'inject') == 0:
-            pid = args[1]
+            self.pid = int(args[1])
+            tmp = open('inject','r+')
+            txt = open('inject.txt','w+')
+            lines = tmp.readlines()
+            for line in lines:
+                newline = line.replace(r'%pid',args[1])
+                txt.writelines(newline)
+            txt.close()
+            tmp.close()
+            os.system('inject.bat')
+        elif cmp(args[0],'dex') == 0:
+            self.dex = args[1]
+
 
     def _startTrace(self):
         self._traceFuncCntDict.clear()

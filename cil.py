@@ -44,6 +44,8 @@ class CilWindow(QtGui.QMainWindow):
         self.ui.ilTextBrowser.clear()
         funcName = funcName+':'
         self.ui.ilTextBrowser.append(funcName)
+        print bytecode
+        print repr(code)
         for x in bytecode:
             line = 'line_'+str(x[0])+':    '+x[1]
             self.ui.ilTextBrowser.append(line)

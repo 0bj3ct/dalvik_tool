@@ -217,7 +217,10 @@ class MethodContext(object):
         if not code:
             buf = JdwpBuf.PyBuf(data)
             codelen = buf.unpackU32()
-            bytecode = data[4:codelen*2]
+            bytecode = data[4:codelen*2+4]
+            print codelen
+            print len(bytecode)
+            print repr(bytecode)
             return codelen,bytecode
         else:
             print 'erro'
