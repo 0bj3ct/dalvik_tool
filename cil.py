@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
-# -*- coding: utf-8 -*-
 #file: cil.py
-#author: skeu
-#description: cil显示,编辑,编译模块
+#author: object
+#description: cil显示,编辑,反编译，编译模块
 
 from PyQt4 import QtCore, QtGui
 import cilUI
@@ -49,7 +48,11 @@ class CilWindow(QtGui.QMainWindow):
         for x in bytecode:
             line = 'line_'+str(x[0])+':    '+x[1]
             self.ui.ilTextBrowser.append(line)
-
+    
+    def showDecode(self,funcName):
+        nameList = funcName.split('@')
+        clsName = nameList[0]
+        methName = nameList[1]
     def WinInit(self):
         return
 

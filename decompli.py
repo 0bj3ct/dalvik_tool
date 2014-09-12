@@ -725,6 +725,13 @@ class DexDecompiler:
             self.Listing.append(instruction)
         return self.Listing
 
+    def decompliCode(self,clsName,funcName):
+        allCls = jadx.getClasses()
+        for cls in allCls:
+            if cmp(clsName,cls.getFullName()) == 0:
+                code = cls.getCode()
+                
+
 def main():
     bytecode = test
     print len(bytecode)
