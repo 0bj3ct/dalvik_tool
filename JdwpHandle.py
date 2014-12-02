@@ -94,7 +94,10 @@ class Session(object):
         self._eventDict = {}
         self.sendbuf = JdwpBuf.PyBuf()
         self.ctxt = Context()
-        self.conn = JdwpNet.connect(JdwpNet.forward(pid, dev))
+        if pid == None:
+            self.conn = JdwpNet.connect(20086)
+        else:
+            self.conn = JdwpNet.connect(JdwpNet.forward(pid, dev))
 
     def initCb(self):
         self.conn.setcallback(0xc701,self._traceHandle)

@@ -66,7 +66,7 @@ class XMonoWindow(QtGui.QMainWindow):
         self.log.regHandle(self._print2Log)
         #self._ecmd = ecmd.Ecmd(self)
         self.sess = None
-        self.pid = 0
+        self.pid = 7295
         self.dex = None
         self._createActions()
         self._createMenus()
@@ -172,7 +172,11 @@ class XMonoWindow(QtGui.QMainWindow):
             erro = True
             self._ecmdErr(u"adb 运行失败")
         if erro: return False'''
-        self.sess = Session(self.pid,None)
+
+        #self.sess = Session(self.pid,None)
+
+        #for ligang
+        self.sess = Session(None, None)
         self._ecmdConnected()
         self.sess.initCb()
         self.vm = DalvkVm(self.sess)
@@ -289,7 +293,11 @@ class XMonoWindow(QtGui.QMainWindow):
         sort = 1
         for m in reader.callInfo:
             if m["method_action"]:
-                method_info = reader.funcData[m["method_id"]]
+                try:
+                    method_info = reader.funcData[m["method_id"]]
+                except:
+                    print m["method_id"]
+                    continue
                 funcName = method_info["method_name"]
                 className = method_info["class_name"]
                 jniName = method_info["jni"]
@@ -334,7 +342,8 @@ class XMonoWindow(QtGui.QMainWindow):
         clsName = "L"+clsName+";"
         clsObj = vm.getClass(clsName)
         mObj = ctxt.objpool(MethodContext,clsObj.rtId,mId,self.sess)
-        #print "%s mId:%x" %(funcName,mId)
+        print mObj;
+        print "%s mId:%x" %(funcName,mId)
         codelen,code = mObj.getBytecodes()
         self.cilDisasmed.emit(s,code)
 

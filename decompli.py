@@ -239,18 +239,25 @@ InstructionSet = {
     0xe0: ['shl-int/lit8','22b'],
     0xe1: ['shr-int/lit8','22b'],
     0xe2: ['ushr-int/lit8','22b'],
-    #-----------------------------
-    #(unused)
+    0xe3: ['+iget-volatile','f22c'],
+    0xe4: ['+iput-volatile','f22c'],
+    0xe5: ['+sget-volatile','f22c'],
+    0xe6: ['+sput-volatile','f22c'],
+    0xe7: ['+iget-object-volatile','f22c'],
+    0xe8: ['+iget-wide-volatile','f22c'],
+    0xe9: ['+iput-wide-volatile','f22c'],
+    0xea: ['+sget-wide-volatile','f22c'],
+    0xeb: ['+sput-wide-volatile','f22c'],
     #-----------------------------
     0xec: ['breakpoint','bp'],
     0xf0: ['+invoke-object-init-range','35c'],
     0xf1: ['return-void-barrier'],
-    0xf2: ['+iget-quick','22c'],
-    0xf3: ['+iget-wide-quick','22c'],
-    0xf4: ['+iget-object-quick','22c'],
-    0xf5: ['+iput-quick','22c'],
-    0xf6: ['+iput-wide-quick','22c'],
-    0xf7: ['+iput-object-quick','22c'],
+    0xf2: ['+iget-quick','f22c'],
+    0xf3: ['+iget-wide-quick','f22c'],
+    0xf4: ['+iget-object-quick','f22c'],
+    0xf5: ['+iput-quick','f22c'],
+    0xf6: ['+iput-wide-quick','f22c'],
+    0xf7: ['+iput-object-quick','f22c'],
     0xf8: ['+invoke-virtual-quick','i35c'],
     0xf9: ['+invoke-virtual-quick/range','i3rc'],
     0xfa: ['+invoke-super-quick','i35c'],
@@ -597,7 +604,7 @@ class DexDecompiler:
         #typen = self.DexFile.get_type_by_id(a22c['CCCC'])
         typen = '{type_name}'
         args = ' v{0:d}, v{1:d}, [{2}] // type@{3:04x}'.format(a22c['A'],a22c['B'],typen,a22c['CCCC'])
-        return args
+        return args                                                                                                                                                                                                                                                                                                    
 
     def decode_22s_args(self, op):
         a22s = self.args_22s.parse(op)
